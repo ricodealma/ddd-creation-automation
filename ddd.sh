@@ -1,47 +1,70 @@
 #!/bin/bash
 
-# Verifica se foi passado o link do repositório e o diretório de destino
-if [ $# -ne 2 ]; then
-    echo "Usage: create-dotnet-project <git-repository-url> <destination-directory>"
+# Função de uso
+usage() {
+    echo "Usage:"
+    echo "  For remote repository: $0 <git-repository-url> <destination-directory>"
+    echo "  For local project: $0 --local <project-name> <destination-directory>"
     exit 1
+}
+
+# Verifica os argumentos
+if [ $# -lt > 3 ]; then
+    usage
 fi
 
-# Captura o link do repositório e diretório de destino
-GIT_REPO_URL=$1
-DESTINATION_DIR=$2
-
-# Expande o caminho para o diretório de destino
-FULL_DESTINATION_PATH=$(readlink -f "$DESTINATION_DIR")
-
-# Extrai o nome do repositório
-PROJECT_NAME=$(basename -s .git "$GIT_REPO_URL")
+# Processamento dos argumentos
+if [ "$1" == "--local" ]; then
+    IS_LOCAL=true
+    PROJECT_NAME=$2
+    DESTINATION_DIR=$3
+    GIT_REPO_URL=""
+    FULL_DESTINATION_PATH=$(readlink -f "$DESTINATION_DIR")
+    echo "Local usage"
+else
+    IS_LOCAL=false
+    GIT_REPO_URL=$1
+    DESTINATION_DIR=$2
+    FULL_DESTINATION_PATH=$(readlink -f "$DESTINATION_DIR")
+    PROJECT_NAME=$(basename -s .git "$GIT_REPO_URL")
+    echo "Virtual usage"
+fi
 
 # Formata o nome do projeto
-PROJECT_NAME_CAMEL=$(echo "$PROJECT_NAME"|tr '-' '.'|awk -F. '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) substr($i,2)} 1' OFS=.)
+PROJECT_NAME_CAMEL=$(echo "$PROJECT_NAME" | tr '-' '.' | awk -F. '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) substr($i,2)} 1' OFS=.)
 
 # Entra no diretório de destino
 cd "$FULL_DESTINATION_PATH" || exit 1
 
-# Clona o repositório
-git clone "$GIT_REPO_URL"
+# Clona o repositório ou cria diretório local
+if [ "$IS_LOCAL" = false ]; then
+    git clone "$GIT_REPO_URL"
+else
+    mkdir -p "$PROJECT_NAME"
+fi
 
 # Entra no diretório do projeto
 cd "$PROJECT_NAME" || exit 1
+
+# Inicializa git se for projeto local
+if [ "$IS_LOCAL" = true ]; then
+    git init
+fi
 
 # Criação das pastas
 mkdir -p src test
 
 # Criação da solução vazia
-dotnet new sln -n "$PROJECT_NAME_CAMEL"
+dotnet new sln -n "$PROJECT_NAME_CAMEL" || exit 1
 
 # Criação dos projetos
-dotnet new classlib -n "$PROJECT_NAME_CAMEL.Domain" -o "src/$PROJECT_NAME_CAMEL.Domain"
-dotnet new classlib -n "$PROJECT_NAME_CAMEL.Infra" -o "src/$PROJECT_NAME_CAMEL.Infra"
-dotnet new webapi -n "$PROJECT_NAME_CAMEL.App" -o "src/$PROJECT_NAME_CAMEL.App"
+dotnet new classlib -n "$PROJECT_NAME_CAMEL.Domain" -o "src/$PROJECT_NAME_CAMEL.Domain" || exit 1
+dotnet new classlib -n "$PROJECT_NAME_CAMEL.Infra" -o "src/$PROJECT_NAME_CAMEL.Infra" || exit 1
+dotnet new webapi -n "$PROJECT_NAME_CAMEL.App" -o "src/$PROJECT_NAME_CAMEL.App" || exit 1
 
-dotnet new xunit -n "$PROJECT_NAME_CAMEL.Domain.Test" -o "test/$PROJECT_NAME_CAMEL.Domain.Test"
-dotnet new xunit -n "$PROJECT_NAME_CAMEL.Infra.Test" -o "test/$PROJECT_NAME_CAMEL.Infra.Test"
-dotnet new xunit -n "$PROJECT_NAME_CAMEL.App.Test" -o "test/$PROJECT_NAME_CAMEL.App.Test"
+dotnet new xunit -n "$PROJECT_NAME_CAMEL.Domain.Test" -o "test/$PROJECT_NAME_CAMEL.Domain.Test" || exit 1
+dotnet new xunit -n "$PROJECT_NAME_CAMEL.Infra.Test" -o "test/$PROJECT_NAME_CAMEL.Infra.Test" || exit 1
+dotnet new xunit -n "$PROJECT_NAME_CAMEL.App.Test" -o "test/$PROJECT_NAME_CAMEL.App.Test" || exit 1
 
 # Adicionando os projetos à solução
 dotnet sln add src/$PROJECT_NAME_CAMEL.Domain/$PROJECT_NAME_CAMEL.Domain.csproj
@@ -53,21 +76,13 @@ dotnet sln add test/$PROJECT_NAME_CAMEL.Infra.Test/$PROJECT_NAME_CAMEL.Infra.Tes
 dotnet sln add test/$PROJECT_NAME_CAMEL.App.Test/$PROJECT_NAME_CAMEL.App.Test.csproj
 
 # Referências entre projetos
-dotnet add src/$PROJECT_NAME_CAMEL.Infra/$PROJECT_NAME_CAMEL.Infra.csproj \
-    reference src/$PROJECT_NAME_CAMEL.Domain/$PROJECT_NAME_CAMEL.Domain.csproj
+dotnet add src/$PROJECT_NAME_CAMEL.Infra/$PROJECT_NAME_CAMEL.Infra.csproj reference src/$PROJECT_NAME_CAMEL.Domain/$PROJECT_NAME_CAMEL.Domain.csproj
+dotnet add src/$PROJECT_NAME_CAMEL.App/$PROJECT_NAME_CAMEL.App.csproj reference src/$PROJECT_NAME_CAMEL.Domain/$PROJECT_NAME_CAMEL.Domain.csproj
+dotnet add src/$PROJECT_NAME_CAMEL.App/$PROJECT_NAME_CAMEL.App.csproj reference src/$PROJECT_NAME_CAMEL.Infra/$PROJECT_NAME_CAMEL.Infra.csproj
 
-dotnet add src/$PROJECT_NAME_CAMEL.App/$PROJECT_NAME_CAMEL.App.csproj \
-    reference src/$PROJECT_NAME_CAMEL.Domain/$PROJECT_NAME_CAMEL.Domain.csproj \
-    reference src/$PROJECT_NAME_CAMEL.Infra/$PROJECT_NAME_CAMEL.Infra.csproj
-
-dotnet add test/$PROJECT_NAME_CAMEL.Domain.Test/$PROJECT_NAME_CAMEL.Domain.Test.csproj \
-    reference src/$PROJECT_NAME_CAMEL.Domain/$PROJECT_NAME_CAMEL.Domain.csproj
-
-dotnet add test/$PROJECT_NAME_CAMEL.Infra.Test/$PROJECT_NAME_CAMEL.Infra.Test.csproj \
-    reference src/$PROJECT_NAME_CAMEL.Infra/$PROJECT_NAME_CAMEL.Infra.csproj
-
-dotnet add test/$PROJECT_NAME_CAMEL.App.Test/$PROJECT_NAME_CAMEL.App.Test.csproj \
-    reference src/$PROJECT_NAME_CAMEL.App/$PROJECT_NAME_CAMEL.App.csproj
+dotnet add test/$PROJECT_NAME_CAMEL.Domain.Test/$PROJECT_NAME_CAMEL.Domain.Test.csproj reference src/$PROJECT_NAME_CAMEL.Domain/$PROJECT_NAME_CAMEL.Domain.csproj
+dotnet add test/$PROJECT_NAME_CAMEL.Infra.Test/$PROJECT_NAME_CAMEL.Infra.Test.csproj reference src/$PROJECT_NAME_CAMEL.Infra/$PROJECT_NAME_CAMEL.Infra.csproj
+dotnet add test/$PROJECT_NAME_CAMEL.App.Test/$PROJECT_NAME_CAMEL.App.Test.csproj reference src/$PROJECT_NAME_CAMEL.App/$PROJECT_NAME_CAMEL.App.csproj
 
 # Adicionando pacotes NuGet na camada App
 dotnet add src/$PROJECT_NAME_CAMEL.App/$PROJECT_NAME_CAMEL.App.csproj package AWSSDK.SecurityToken
@@ -83,5 +98,21 @@ dotnet add test/$PROJECT_NAME_CAMEL.Infra.Test/$PROJECT_NAME_CAMEL.Infra.Test.cs
 
 dotnet add test/$PROJECT_NAME_CAMEL.App.Test/$PROJECT_NAME_CAMEL.App.Test.csproj package JUnitXml.TestLogger
 dotnet add test/$PROJECT_NAME_CAMEL.App.Test/$PROJECT_NAME_CAMEL.App.Test.csproj package coverlet.msbuild
+
+# Cria README.md inicial
+echo "# $PROJECT_NAME
+
+## Descrição
+Projeto .NET inicializado automaticamente.
+
+## Estrutura
+- src/: Código fonte da aplicação
+- test/: Projetos de teste" > README.md
+
+# Primeiro commit para projetos locais
+if [ "$IS_LOCAL" = true ]; then
+    git add .
+    git commit -m "Estrutura inicial do projeto"
+fi
 
 echo "✅ Project structure created successfully in $FULL_DESTINATION_PATH/$PROJECT_NAME"
