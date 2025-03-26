@@ -3,15 +3,19 @@
 # Função de uso
 usage() {
     echo "Usage:"
-    echo "  For remote repository: $0 <git-repository-url> <destination-directory>"
-    echo "  For local project: $0 --local <project-name> <destination-directory>"
+    echo "  For remote repository: $0 <git-repository-url> <destination-directory> [app-type]"
+    echo "  For local project: $0 --local <project-name> <destination-directory> [app-type]"
+    echo "  app-type (optional): Type of .NET project to create in the App layer (default: webapi)"
     exit 1
 }
 
-# Verifica os argumentos
-if [ $# -lt > 3 ]; then
+# Verifica os argumentos mínimos
+if [ $# -lt 3 ]; then
     usage
 fi
+
+# Define o tipo de projeto na camada App (padrão: webapi)
+APP_TYPE=${4:-webapi}
 
 # Processamento dos argumentos
 if [ "$1" == "--local" ]; then
@@ -19,16 +23,14 @@ if [ "$1" == "--local" ]; then
     PROJECT_NAME=$2
     DESTINATION_DIR=$3
     GIT_REPO_URL=""
-    FULL_DESTINATION_PATH=$(readlink -f "$DESTINATION_DIR")
-    echo "Local usage"
 else
     IS_LOCAL=false
     GIT_REPO_URL=$1
     DESTINATION_DIR=$2
-    FULL_DESTINATION_PATH=$(readlink -f "$DESTINATION_DIR")
     PROJECT_NAME=$(basename -s .git "$GIT_REPO_URL")
-    echo "Virtual usage"
 fi
+
+FULL_DESTINATION_PATH=$(readlink -f "$DESTINATION_DIR")
 
 # Formata o nome do projeto
 PROJECT_NAME_CAMEL=$(echo "$PROJECT_NAME" | tr '-' '.' | awk -F. '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) substr($i,2)} 1' OFS=.)
@@ -60,7 +62,7 @@ dotnet new sln -n "$PROJECT_NAME_CAMEL" || exit 1
 # Criação dos projetos
 dotnet new classlib -n "$PROJECT_NAME_CAMEL.Domain" -o "src/$PROJECT_NAME_CAMEL.Domain" || exit 1
 dotnet new classlib -n "$PROJECT_NAME_CAMEL.Infra" -o "src/$PROJECT_NAME_CAMEL.Infra" || exit 1
-dotnet new webapi -n "$PROJECT_NAME_CAMEL.App" -o "src/$PROJECT_NAME_CAMEL.App" || exit 1
+dotnet new "$APP_TYPE" -n "$PROJECT_NAME_CAMEL.App" -o "src/$PROJECT_NAME_CAMEL.App" || exit 1
 
 dotnet new xunit -n "$PROJECT_NAME_CAMEL.Domain.Test" -o "test/$PROJECT_NAME_CAMEL.Domain.Test" || exit 1
 dotnet new xunit -n "$PROJECT_NAME_CAMEL.Infra.Test" -o "test/$PROJECT_NAME_CAMEL.Infra.Test" || exit 1

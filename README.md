@@ -4,9 +4,9 @@
 
 Este script automatiza a criação de uma estrutura de projeto .NET com arquitetura DDD (Domain-Driven Design), incluindo:
 
-- Clonagem de repositório Git
+- Clonagem de repositório Git ou criação de projeto local
 - Criação de estrutura de pastas
-- Geração de projetos .NET (Domain, Infra, App)
+- Geração de projetos .NET (Domain, Infra, App) com opção de definir o tipo de projeto na camada `App`
 - Configuração de projetos de teste
 - Adição de pacotes NuGet padrão
 
@@ -55,30 +55,44 @@ source ~/.bash_profile
 
 ## Uso
 
-### Sintaxe
+### Sintaxe para Repositório Remoto
 
 ```bash
-ddd <url-repositorio-git> <diretorio-destino>
+ddd <url-repositorio-git> <diretorio-destino> [tipo-app]
 ```
 
-### Exemplo
+### Sintaxe para Projeto Local
 
 ```bash
-# Cria projeto no diretório atual
+ddd --local <nome-projeto> <diretorio-destino> [tipo-app]
+```
+
+> **Nota:** O parâmetro `[tipo-app]` é opcional. Se não for informado, o padrão será `webapi`.
+
+### Exemplos
+
+```bash
+# Cria projeto a partir de repositório remoto no diretório atual (padrão webapi)
 ddd https://github.com/seu-usuario/seu-projeto .
 
-# Cria projeto em um diretório específico
-ddd https://github.com/seu-usuario/seu-projeto /caminho/para/projetos
+# Cria projeto a partir de repositório remoto com um tipo de App diferente (ex: console)
+ddd https://github.com/seu-usuario/seu-projeto /caminho/para/projetos console
+
+# Cria novo projeto local (padrão webapi)
+ddd --local meu-novo-projeto /caminho/para/projetos
+
+# Cria novo projeto local com um tipo de App diferente (ex: worker)
+ddd --local meu-novo-projeto /caminho/para/projetos worker
 ```
 
 ## Estrutura de Projeto Gerada
 
-```
+```sh
 projeto/
 ├── src/
 │   ├── Projeto.Domain/
 │   ├── Projeto.Infra/
-│   └── Projeto.App/
+│   └── Projeto.App/  # Tipo de projeto pode ser webapi, console, worker, etc.
 └── test/
     ├── Projeto.Domain.Test/
     ├── Projeto.Infra.Test/
@@ -98,11 +112,21 @@ projeto/
 - JUnitXml.TestLogger
 - coverlet.msbuild
 
+## Novidades
+
+- Suporte para criação de projetos locais
+- Inicialização automática de repositório Git para projetos locais
+- Geração de README.md inicial
+- Commit inicial para projetos locais
+- **Novo:** Suporte para definir o tipo de projeto na camada `App` (padrão: `webapi`)
+
 ## Solução de Problemas
 
 - Certifique-se de ter .NET SDK instalado
 - Verifique conexão com a internet
 - Garanta permissões de execução do script
+- Para projetos locais, certifique-se de fornecer um nome de projeto válido
+- Se um tipo de projeto inválido for informado, o comando `dotnet new` pode falhar. Consulte `dotnet new --list` para ver os tipos disponíveis.
 
 ## Contribuição
 
